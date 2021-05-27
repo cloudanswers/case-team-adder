@@ -27,46 +27,45 @@ public with sharing class EmailMessageTriggerHandler {
             mapCaseIdWithAddresses.get(emailMsg.ParentId).addAll(emailsFound);
             foundEmailAddresses.addAll(emailMsg.CcAddress.toLowerCase().split('; '));
         }
-                
-        Map<String, Id> mapEmailWithUserId = new Map<String, Id>();
-        for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: foundEmailAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
-            mapEmailWithUserId.put(userRec.Email.toLowerCase(),userRec.Id);
-        }
         
+        Map<String, Id> emailToUserId = new Map<String, Id>();
+        for(User u : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: foundEmailAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
+            emailToUserId.put(u.Email.toLowerCase().trim(), u.Id);
+        }
+
         List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1];
         
-        // fail over to first team role if we couldn't find our normal one
+        // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
         if (caseTeamRoleList.isEmpty()) caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1];
 
         List<CaseTeamMember> caseTeamMemberList = new List<CaseTeamMember>();
-       
-        if(caseTeamRoleList.size()>0){
-            for(Id caseId : mapCaseIdWithCCAddresses.keySet()){
-                for(String email : mapCaseIdWithCCAddresses.get(caseId)){
-                    if(mapEmailWithUserId.containsKey(email.toLowerCase())){
-                         System.debug('userRec.Id::'+email.toLowerCase());
-                        System.debug('userRec.Id::'+mapEmailWithUserId.get(email.toLowerCase()));
-                        CaseTeamMember caseTeamMemberRec =new CaseTeamMember();
-                        caseTeamMemberRec.ParentId= caseId;
-                        caseTeamMemberRec.MemberId= mapEmailWithUserId.get(email.toLowerCase());
-                        caseTeamMemberRec.TeamRoleId = caseTeamRoleList[0].id;
-                        caseTeamMemberList.add(caseTeamMemberRec);
-                    }
-                }
+
+        Map<Id, Set<String>> existingCaseTeamMembers = new Map<Id, Set<String>>();
+        for (Case c : [
+            select Id, (select Id, MemberId, Member.Email from TeamMembers)
+            from Case
+            where Id in :mapCaseIdWithAddresses.keySet()
+        ]) {
+            Set<String> emails = new Set<String>();
+            for (CaseTeamMember ctm : c.TeamMembers) emails.add(ctm.Member.Email.toLowerCase().trim());
+            existingCaseTeamMembers.put(c.Id, emails);
+        }
+
+        List<CaseTeamMember> toInsert = new List<CaseTeamMember>();
+        for(Id caseId : mapCaseIdWithAddresses.keySet()){
+            Set<String> emails = new Set<String>();
+            emails = emails.removeAll(existingCaseTeamMembers.get(caseId));
+            emails = emails.retainAll(emailToUserId.keySet());
+            for(String email : emails){
+                toInsert.add(
+                    new CaseTeamMember(
+                        ParentId = caseId,
+                        MemberId= emailToUserId.get(email.toLowerCase()),
+                        TeamRoleId = caseTeamRoleList[0].id
+                    )
+                );
             }
         }
-        
-        
-      Database.saveResult[] saveResultList = Database.insert(caseTeamMemberList,false);
-        for(Database.saveResult saveResult : saveResultList){
-            if(!saveResult.isSuccess()){
-                for(Database.Error error : saveResult.getErrors()){
-                    System.debug('Error Occured:::'+error.getMessage()+' :: '+error.getStatusCode()+' :: '+error.getFields() );
-                }
-            }
-        }
-       
+        insert toInsert;       
     }
-    
-    
 }
