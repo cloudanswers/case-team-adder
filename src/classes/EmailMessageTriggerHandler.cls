@@ -1,6 +1,6 @@
 public with sharing class EmailMessageTriggerHandler {
     
-    private static final ROLE_NAME = 'Collaborator';
+    private static final String ROLE_NAME = 'Collaborator';
 
     private static Set<String> splitEmailList (String s) {
         Set<String> emails = new Set<String>();
@@ -17,9 +17,9 @@ public with sharing class EmailMessageTriggerHandler {
         Set<String> foundEmailAddresses = new Set<String>();
         for(EmailMessage  emailMsg : newEmailMessageList){
             if (emailMsg.ParentId == null || emailMsg.ParentId.getSObjectType() != Schema.Case.SObjectType) continue;
-            Set<String> emailsFound = splitEmailList(emailMsg.ToAddresses);
-            emailsFound.addAll(splitEmailList(emailMsg.CcAddresses));
-            emailsFound.addAll(splitEmailList(emailMsg.BccAddresses));
+            Set<String> emailsFound = splitEmailList(emailMsg.ToAddress);
+            emailsFound.addAll(splitEmailList(emailMsg.CcAddress));
+            emailsFound.addAll(splitEmailList(emailMsg.BccAddress));
             if (emailsFound.isEmpty()) continue;
             if(!mapCaseIdWithAddresses.containsKey(emailMsg.ParentId)){
                 mapCaseIdWithAddresses.put(emailMsg.ParentId, new Set<String>());
@@ -57,8 +57,8 @@ public with sharing class EmailMessageTriggerHandler {
         List<CaseTeamMember> toInsert = new List<CaseTeamMember>();
         for(Id caseId : mapCaseIdWithAddresses.keySet()){
             Set<String> emails = new Set<String>();
-            emails = emails.removeAll(existingCaseTeamMembers.get(caseId));
-            emails = emails.retainAll(emailToUserId.keySet());
+            emails.removeAll(existingCaseTeamMembers.get(caseId));
+            emails.retainAll(emailToUserId.keySet());
             for(String email : emails){
                 toInsert.add(
                     new CaseTeamMember(
