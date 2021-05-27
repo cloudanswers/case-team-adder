@@ -5,7 +5,6 @@ public with sharing class EmailMessageTriggerHandler {
         Set<String> ccAddresses = new Set<String>();
         for(EmailMessage  emailMsg : newEmailMessageList){
             if(emailMsg.Incoming && emailMsg.CcAddress != null  && emailMsg.ParentId != null && String.valueOf(emailMsg.ParentId).substring(0,3) == '500'){
-                
                 if(!mapCaseIdWithCCAddresses.containsKey(emailMsg.ParentId)){
                     mapCaseIdWithCCAddresses.put(emailMsg.ParentId, new Set<String>());
                 }
@@ -16,9 +15,8 @@ public with sharing class EmailMessageTriggerHandler {
         
         System.debug('ccAddresses:::'+ccAddresses);
         
-        Set<String> setCommunityLicense = new Set<String>{'Channel Account','Partner Community','Customer Community Plus','Customer Community','External Apps'};
         Map<String, Id> mapEmailWithUserId = new Map<String, Id>();
-        for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: ccAddresses AND Profile.UserLicense.Name NOT IN: setCommunityLicense LIMIT 10000]){
+        for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: ccAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
             mapEmailWithUserId.put(userRec.Email.toLowerCase(),userRec.Id);
         }
         
