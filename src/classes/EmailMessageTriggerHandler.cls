@@ -25,7 +25,7 @@ public with sharing class EmailMessageTriggerHandler {
                 mapCaseIdWithAddresses.put(emailMsg.ParentId, new Set<String>());
             }
             mapCaseIdWithAddresses.get(emailMsg.ParentId).addAll(emailsFound);
-            foundEmailAddresses.addAll(emailMsg.CcAddress.toLowerCase().split('; '));
+            foundEmailAddresses.addAll(emailsFound);
         }
         
         Map<String, Id> emailToUserId = new Map<String, Id>();
