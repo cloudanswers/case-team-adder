@@ -1,0 +1,42 @@
+name: Salesforce CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '11'
+      - name: ant setup
+        run: ant -noinput -buildfile build.xml setup
+      - name: Build with Ant
+        env:
+          SALESFORCE_URL: ${{ secrets.SALESFORCE_URL }}
+          SALESFORCE_USERNAME: ${{ secrets.SALESFORCE_USERNAME }}
+          SALESFORCE_PASSWORD: ${{ secrets.SALESFORCE_PASSWORD }}
+        run: ant test
+  pmd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '11'
+      - name: PMD
+        env:
+          PMD_VERSION: 6.0.1
+          RULESET: category/apex/design.xml
+        run: |
+          curl -OL https://github.com/pmd/pmd/releases/download/pmd_releases%2F6.33.0/pmd-bin-6.33.0.zip
+          unzip pmd-bin-6.33.0.zip
+          ./pmd-bin-6.33.0/bin/run.sh pmd -d ./src -R rulesets/vf/security.xml -f text
+          ./pmd-bin-6.33.0/bin/run.sh pmd -d ./src -R rulesets/apex/quickstart.xml -f text
