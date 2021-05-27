@@ -23,19 +23,21 @@ public with sharing class EmailMessageTriggerHandler {
             if (emailsFound.isEmpty()) continue;
             if(!mapCaseIdWithAddresses.containsKey(emailMsg.ParentId)){
                 mapCaseIdWithAddresses.put(emailMsg.ParentId, new Set<String>());
-                }
+            }
             mapCaseIdWithAddresses.get(emailMsg.ParentId).addAll(emailsFound);
             foundEmailAddresses.addAll(emailMsg.CcAddress.toLowerCase().split('; '));
-            }
-        
+        }
+                
         Map<String, Id> mapEmailWithUserId = new Map<String, Id>();
-        for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: ccAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
+        for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: foundEmailAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
             mapEmailWithUserId.put(userRec.Email.toLowerCase(),userRec.Id);
         }
         
+        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1];
         
-        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = 'Managing Role' LIMIT 1];
-       
+        // fail over to first team role if we couldn't find our normal one
+        if (caseTeamRoleList.isEmpty()) caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1];
+
         List<CaseTeamMember> caseTeamMemberList = new List<CaseTeamMember>();
        
         if(caseTeamRoleList.size()>0){
