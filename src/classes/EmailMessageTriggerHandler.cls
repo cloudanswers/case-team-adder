@@ -38,6 +38,9 @@ public with sharing class EmailMessageTriggerHandler {
         // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
         if (caseTeamRoleList.isEmpty()) caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1];
 
+        // if no roles defined in org, exit early
+        if (caseTeamRoleList.isEmpty()) return;
+
         List<CaseTeamMember> caseTeamMemberList = new List<CaseTeamMember>();
 
         Map<Id, Set<String>> existingCaseTeamMembers = new Map<Id, Set<String>>();
