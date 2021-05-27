@@ -1,0 +1,46 @@
+<project basedir="." xmlns:sf="antlib:com.salesforce">
+
+    <target name="setup">
+        <exec executable="wget">
+            <arg value="--quiet"/>
+            <arg value="https://gs0.salesforce.com/dwnld/SfdcAnt/salesforce_ant_51.0.zip"/>
+        </exec>
+        <exec executable="unzip">
+            <arg value="-o"/>
+            <arg value="salesforce_ant_51.0.zip"/>
+            <arg value="ant-salesforce.jar"/>
+        </exec>
+    </target>
+
+    <taskdef resource="com/salesforce/antlib.xml"
+             classPath="ant-salesforce.jar"
+             uri="antlib:com.salesforce"/>
+
+    <property environment="env"/>
+    <property file=".env" prefix="env" relative="true" basedir="."/>
+
+    <target name="deploy" description="Deploys the code to salesforce.com">
+        <sf:deploy username="${env.SALESFORCE_USERNAME}"
+                   password="${env.SALESFORCE_PASSWORD}"
+                   serverurl="${env.SALESFORCE_URL}"
+                   deployRoot="src"/>
+    </target>
+
+    <target name="test" description="Test without saving to salesforce">
+        <sf:deploy username="${env.SALESFORCE_USERNAME}"
+                   password="${env.SALESFORCE_PASSWORD}"
+                   serverurl="${env.SALESFORCE_URL}"
+                   deployRoot="src"
+                   testLevel="RunLocalTests"
+                   checkOnly="true"/>
+    </target>
+
+    <target name="refresh" description="Refresh from org">
+        <sf:retrieve username="${env.SALESFORCE_USERNAME}"
+                     password="${env.SALESFORCE_PASSWORD}"
+                     serverurl="${env.SALESFORCE_URL}"
+                     retrieveTarget="src"
+                     unpackaged="src/package.xml"/>
+    </target>
+
+</project>
