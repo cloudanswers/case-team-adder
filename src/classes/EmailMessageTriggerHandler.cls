@@ -1,19 +1,32 @@
 public with sharing class EmailMessageTriggerHandler {
     
-    public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
-        Map<Id, Set<String>> mapCaseIdWithCCAddresses = new Map<Id, Set<String>>();
-        Set<String> ccAddresses = new Set<String>();
-        for(EmailMessage  emailMsg : newEmailMessageList){
-            if(emailMsg.Incoming && emailMsg.CcAddress != null  && emailMsg.ParentId != null && String.valueOf(emailMsg.ParentId).substring(0,3) == '500'){
-                if(!mapCaseIdWithCCAddresses.containsKey(emailMsg.ParentId)){
-                    mapCaseIdWithCCAddresses.put(emailMsg.ParentId, new Set<String>());
-                }
-                mapCaseIdWithCCAddresses.get(emailMsg.ParentId).addAll(emailMsg.CcAddress.split('; '));
-                ccAddresses.addAll(emailMsg.CcAddress.toLowerCase().split('; '));
+    private static final ROLE_NAME = 'Collaborator';
+
+    private static Set<String> splitEmailList (String s) {
+        Set<String> emails = new Set<String>();
+        if (String.isNotBlank(s)) {
+            for (String email : s.split(';')) {
+                emails.add(s.trim().toLowerCase());
             }
         }
-        
-        System.debug('ccAddresses:::'+ccAddresses);
+        return emails;
+    }
+    
+    public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
+        Map<Id, Set<String>> mapCaseIdWithAddresses = new Map<Id, Set<String>>();
+        Set<String> foundEmailAddresses = new Set<String>();
+        for(EmailMessage  emailMsg : newEmailMessageList){
+            if (emailMsg.ParentId == null || emailMsg.ParentId.getSObjectType() != Schema.Case.SObjectType) continue;
+            Set<String> emailsFound = splitEmailList(emailMsg.ToAddresses);
+            emailsFound.addAll(splitEmailList(emailMsg.CcAddresses));
+            emailsFound.addAll(splitEmailList(emailMsg.BccAddresses));
+            if (emailsFound.isEmpty()) continue;
+            if(!mapCaseIdWithAddresses.containsKey(emailMsg.ParentId)){
+                mapCaseIdWithAddresses.put(emailMsg.ParentId, new Set<String>());
+                }
+            mapCaseIdWithAddresses.get(emailMsg.ParentId).addAll(emailsFound);
+            foundEmailAddresses.addAll(emailMsg.CcAddress.toLowerCase().split('; '));
+            }
         
         Map<String, Id> mapEmailWithUserId = new Map<String, Id>();
         for(User userRec : [SELECT ID, Email, Profile.UserLicense.Name FROM USER WHERE isActive = true AND Email IN: ccAddresses AND Profile.UserLicense.Name = 'Salesforce' LIMIT 10000]){
