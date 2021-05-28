@@ -1,8 +1,17 @@
+
+/**
+ * trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
+ */
 public with sharing class EmailMessageTriggerHandler {
     
     private static final String ROLE_NAME = 'Collaborator';
 	
     @TestVisible
+    /**
+     * @description splitEmailList description
+     * @param  s s description
+     * @return   return description
+     */
     private static Set<String> splitEmailList (String s) {
         Set<String> emails = new Set<String>();
         if (String.isNotBlank(s)) {
@@ -13,6 +22,11 @@ public with sharing class EmailMessageTriggerHandler {
         return emails;
     }
     
+    /**
+     * @description creates a map of email messages to their related email addresses
+     * @param  messages messages description
+     * @return finds the unique email addresses for each email (ParentId)
+     */
     @TestVisible
     private static Map<Id, Set<String>> getEmailsByParentId (List<EmailMessage> messages) {
         Map<Id, Set<String>> result = new Map<Id, Set<String>>();
@@ -34,6 +48,10 @@ public with sharing class EmailMessageTriggerHandler {
         return result;
     }
     
+    /**
+     * @description entrypoint for the triggerhandler
+     * @param  newEmailMessageList list of EmailMessage records from the EmailMessage trigger
+     */
     public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
         Map<Id, Set<String>> mapCaseIdWithAddresses = getEmailsByParentId(newEmailMessageList);
         System.debug('mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
@@ -95,6 +113,6 @@ public with sharing class EmailMessageTriggerHandler {
                 );
             }
         }
-        insert toInsert;       
+        insert toInsert;
     }
 }
