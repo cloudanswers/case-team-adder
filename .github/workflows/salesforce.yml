@@ -36,7 +36,7 @@ jobs:
           PMD_VERSION: 6.0.1
           RULESET: category/apex/design.xml
         run: |
-          curl -OL https://github.com/pmd/pmd/releases/download/pmd_releases%2F6.33.0/pmd-bin-6.33.0.zip
+          curl -OL https://github.com/pmd/pmd/releases/download/pmd_releases%2F6.34.0/pmd-bin-6.34.0.zip
           unzip pmd-bin-6.34.0.zip
           ./pmd-bin-6.34.0/bin/run.sh pmd -d ./src -R rulesets/vf/security.xml -f text
           ./pmd-bin-6.34.0/bin/run.sh pmd -d ./src -R rulesets/apex/quickstart.xml -f text
