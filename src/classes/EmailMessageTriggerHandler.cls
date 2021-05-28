@@ -68,7 +68,11 @@ public with sharing class EmailMessageTriggerHandler {
         // remove addresses already on case teams
         for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
 			String email = ctm.Member.Email;
-            System.assert(String.isNotBlank(email));
+            // weirdly, this is sometimes null when multiple emails are sent in a single transaction
+            if(String.isBlank(email)) {
+                email = userIdToEmail.get(ctm.MemberId);
+            }
+            System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
             System.debug('  removing existing team member: ' + email);
             mapCaseIdWithAddresses.get(ctm.ParentId).remove(email.trim().toLowerCase());
         }
