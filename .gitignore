@@ -1,3 +1,4 @@
 ant-salesforce.jar
 salesforce_ant_*.zip*
 .env
+pmd-bin-*
