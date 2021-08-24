@@ -5,6 +5,13 @@ public with sharing class EmailMessageTriggerHandler {
     
     // FIXME move to setting
     private static final String ROLE_NAME = 'Collaborator';
+    static List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
+    static {
+        // fail over to first team role if we couldn't find our desired one
+        if (caseTeamRoleList.isEmpty()) {
+            caseTeamRoleList = [SELECT Id FROM CaseTeamRole WITH SECURITY_ENFORCED LIMIT 1];
+        }
+    }
 
     @TestVisible
     /**
@@ -59,6 +66,12 @@ public with sharing class EmailMessageTriggerHandler {
      * @param  newEmailMessageList list of EmailMessage records from the EmailMessage trigger
      */
     public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
+
+        if (caseTeamRoleList.isEmpty()) {
+            System.debug(System.LoggingLevel.WARN, 'no case team roles configured in this org');
+            return;
+        }
+
         Map<Id, Set<String>> mapCaseIdWithAddresses = getEmailsByParentId(newEmailMessageList);
         System.debug(System.LoggingLevel.DEBUG, 'mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
         Set<String> foundEmailAddresses = new Set<String>();
@@ -87,26 +100,13 @@ public with sharing class EmailMessageTriggerHandler {
         }
         System.debug(System.LoggingLevel.DEBUG, 'emailToUserId: ' + emailToUserId);
 		
-        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
-        
-        // fail over to first team role if we couldn't find our desired one
-        if (caseTeamRoleList.isEmpty()) {
-            caseTeamRoleList = [SELECT Id FROM CaseTeamRole WITH SECURITY_ENFORCED LIMIT 1];
-        }
-
-        if (caseTeamRoleList.isEmpty()) {
-            System.debug(System.LoggingLevel.WARNING, 'no case team roles configured in this org');
-            return;
-        }
-		
         // remove addresses already on case teams
         for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
-			
             // weirdly, this is sometimes null when multiple emails are sent in a single transaction
             // maybe a platform bug?
             String email = ctm.Member.Email;
             if(String.isBlank(email)) {
-                System.debug(System.LoggingLevel.WARNING, '  email field is null on member object, looking up from user table: ' + ctm);
+                System.debug(System.LoggingLevel.WARN, '  email field is null on member object, looking up from user table: ' + ctm);
                 email = userIdToEmail.get(ctm.MemberId);
             }
             System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
