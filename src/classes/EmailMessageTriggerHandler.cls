@@ -31,7 +31,7 @@ public with sharing class EmailMessageTriggerHandler {
     private static Map<Id, Set<String>> getEmailsByParentId (List<EmailMessage> messages) {
         Map<Id, Set<String>> result = new Map<Id, Set<String>>();
         for (EmailMessage emailMsg : messages) {
-            System.debug(emailMsg);
+            System.debug(System.LoggingLevel.DEBUG, emailMsg);
             if (emailMsg.ParentId == null) {
                 continue;
             }
@@ -60,12 +60,12 @@ public with sharing class EmailMessageTriggerHandler {
      */
     public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
         Map<Id, Set<String>> mapCaseIdWithAddresses = getEmailsByParentId(newEmailMessageList);
-        System.debug('mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
+        System.debug(System.LoggingLevel.DEBUG, 'mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
         Set<String> foundEmailAddresses = new Set<String>();
         for (Set<String> s : mapCaseIdWithAddresses.values()) {
             foundEmailAddresses.addAll(s);
         }
-        System.debug('foundEmailAddresses: ' + foundEmailAddresses);
+        System.debug(System.LoggingLevel.DEBUG, 'foundEmailAddresses: ' + foundEmailAddresses);
         
         Map<Id, String> userIdToEmail = new Map<Id, String>();
         Map<String, Id> emailToUserId = new Map<String, Id>();
@@ -82,7 +82,7 @@ public with sharing class EmailMessageTriggerHandler {
             emailToUserId.put(email, u.Id);
             userIdToEmail.put(u.Id, email);
         }
-        System.debug('emailToUserId: ' + emailToUserId);
+        System.debug(System.LoggingLevel.DEBUG, 'emailToUserId: ' + emailToUserId);
 		
         List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
         
@@ -104,7 +104,7 @@ public with sharing class EmailMessageTriggerHandler {
                 email = userIdToEmail.get(ctm.MemberId);
             }
             System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
-            System.debug('  removing existing team member: ' + email);
+            System.debug(System.LoggingLevel.DEBUG, '  removing existing team member: ' + email);
             mapCaseIdWithAddresses.get(ctm.ParentId).remove(email.trim().toLowerCase());
         }
         
