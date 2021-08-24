@@ -126,6 +126,11 @@ public with sharing class EmailMessageTriggerHandler {
                 );
             }
         }
-        insert toInsert;
+        if (!Schema.sObjectType.CaseTeamMember.isCreateable()) {
+            System.debug(System.LoggingLevel.ERROR, 'CaseTeamMember not creatable');
+        } else {
+            // insert without allOrNone so we don't block email insertion on error
+            Database.insert(toInsert, false);
+        }
     }
 }
