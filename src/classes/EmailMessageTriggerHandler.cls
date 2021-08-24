@@ -1,15 +1,15 @@
-
 /**
  * @description trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
  */
 public with sharing class EmailMessageTriggerHandler {
     
+    // FIXME move to setting
     private static final String ROLE_NAME = 'Collaborator';
-	
+
     @TestVisible
     /**
      * @description splitEmailList description
-     * @param  s s description
+     * @param  s list of emails from the email message, separated by semicolon
      * @return   return description
      */
     private static Set<String> splitEmailList (String s) {
@@ -69,6 +69,8 @@ public with sharing class EmailMessageTriggerHandler {
         
         Map<Id, String> userIdToEmail = new Map<Id, String>();
         Map<String, Id> emailToUserId = new Map<String, Id>();
+        
+        // FIXME this will be a disaster in large orgs
         for(User u : [
             SELECT Id, Email
             FROM User 
@@ -76,7 +78,8 @@ public with sharing class EmailMessageTriggerHandler {
             AND Email IN :foundEmailAddresses 
             AND Profile.UserLicense.Name = 'Salesforce' 
             WITH SECURITY_ENFORCED
-            LIMIT 10000
+            ORDER BY LastModifiedDate desc
+            LIMIT 1000
         ]){
             String email = u.Email.toLowerCase().trim();
             emailToUserId.put(email, u.Id);
@@ -86,21 +89,24 @@ public with sharing class EmailMessageTriggerHandler {
 		
         List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
         
-        // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
+        // fail over to first team role if we couldn't find our desired one
         if (caseTeamRoleList.isEmpty()) {
             caseTeamRoleList = [SELECT Id FROM CaseTeamRole WITH SECURITY_ENFORCED LIMIT 1];
         }
 
-        // if no roles defined in org, exit early
         if (caseTeamRoleList.isEmpty()) {
+            System.debug(System.LoggingLevel.WARNING, 'no case team roles configured in this org');
             return;
         }
 		
         // remove addresses already on case teams
         for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
-			String email = ctm.Member.Email;
+			
             // weirdly, this is sometimes null when multiple emails are sent in a single transaction
+            // maybe a platform bug?
+            String email = ctm.Member.Email;
             if(String.isBlank(email)) {
+                System.debug(System.LoggingLevel.WARNING, '  email field is null on member object, looking up from user table: ' + ctm);
                 email = userIdToEmail.get(ctm.MemberId);
             }
             System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
@@ -111,16 +117,15 @@ public with sharing class EmailMessageTriggerHandler {
         List<CaseTeamMember> toInsert = new List<CaseTeamMember>();
         for(Id caseId : mapCaseIdWithAddresses.keySet()){
             Set<String> emails = mapCaseIdWithAddresses.get(caseId);
+            
             // remove non-user emails
             emails.retainAll(emailToUserId.keySet());
             
             for(String email : emails){
-                Id userId = emailToUserId.get(email);
-                
                 toInsert.add(
                     new CaseTeamMember(
                         ParentId = caseId,
-                        MemberId= emailToUserId.get(email.toLowerCase()),
+                        MemberId = emailToUserId.get(email.toLowerCase()),
                         TeamRoleId = caseTeamRoleList[0].id
                     )
                 );

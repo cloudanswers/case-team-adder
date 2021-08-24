@@ -6,7 +6,8 @@ public class EmailMessageTriggerHandlerTest {
         System.assertEquals(
             // try semicolon with spaces and without
 	        EmailMessageTriggerHandler.splitEmailList('test1@example.com;test2@example.com ; test3@example.com'),
-            new Set<String>{'test1@example.com', 'test2@example.com', 'test3@example.com'}
+            new Set<String>{'test1@example.com', 'test2@example.com', 'test3@example.com'},
+            'parse did not get desired emails'
         );
     }
     
@@ -105,7 +106,7 @@ public class EmailMessageTriggerHandlerTest {
         Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
         
         // and it should be the same number of members
-        System.assertEquals(caseTeamCount + 1, [select Id from CaseTeamMember where MemberId = :UserInfo.getUserId() and ParentId = :testCase.Id].size());
+        System.assertEquals(caseTeamCount + 1, [select Id from CaseTeamMember where MemberId = :UserInfo.getUserId() and ParentId = :testCase.Id].size(), 'member not added to case');
 
     }
 	
