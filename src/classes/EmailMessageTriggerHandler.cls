@@ -75,8 +75,8 @@ public with sharing class EmailMessageTriggerHandler {
             WHERE IsActive = true 
             AND Email IN :foundEmailAddresses 
             AND Profile.UserLicense.Name = 'Salesforce' 
-            LIMIT 10000
             WITH SECURITY_ENFORCED
+            LIMIT 10000
         ]){
             String email = u.Email.toLowerCase().trim();
             emailToUserId.put(email, u.Id);
@@ -84,11 +84,11 @@ public with sharing class EmailMessageTriggerHandler {
         }
         System.debug('emailToUserId: ' + emailToUserId);
 		
-        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1 WITH SECURITY_ENFORCED];
+        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
         
         // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
         if (caseTeamRoleList.isEmpty()) {
-            caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1 WITH SECURITY_ENFORCED];
+            caseTeamRoleList = [SELECT Id FROM CaseTeamRole WITH SECURITY_ENFORCED LIMIT 1];
         }
 
         // if no roles defined in org, exit early
@@ -97,7 +97,7 @@ public with sharing class EmailMessageTriggerHandler {
         }
 		
         // remove addresses already on case teams
-        for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet() WITH SECURITY_ENFORCED]) {
+        for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
 			String email = ctm.Member.Email;
             // weirdly, this is sometimes null when multiple emails are sent in a single transaction
             if(String.isBlank(email)) {
