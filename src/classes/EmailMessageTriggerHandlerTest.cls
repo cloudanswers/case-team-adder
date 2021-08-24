@@ -1,6 +1,6 @@
 @isTest
 public class EmailMessageTriggerHandlerTest {
-
+    
     @IsTest
     static void testEmailSplitter () {
         System.assertEquals(
@@ -18,7 +18,11 @@ public class EmailMessageTriggerHandlerTest {
         mail.setCcAddresses(new List<String>{UserInfo.getUserEmail()});
 		mail.setSubject('Test Subject');
         mail.setPlainTextBody('Test Body');
-        Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+        try {
+            Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+        } catch (Exception e) {
+            System.assert(false, 'exception thrown: ' + e);
+        }
     }
     
     @IsTest
@@ -33,7 +37,8 @@ public class EmailMessageTriggerHandlerTest {
                         HtmlBody = 'Test email body'
                     )
                 }
-            ).keySet().isEmpty()
+            ).keySet().isEmpty(),
+            'should not have found any emails'
         );
         
         System.assert(
@@ -45,10 +50,11 @@ public class EmailMessageTriggerHandlerTest {
                         CcAddress = 'test@example.com ; ' + UserInfo.getUserEmail(),
                         Subject = 'Test Subject',
                         HtmlBody = 'Test email body',
-                        ParentId = '500000000000001'
+                        ParentId = '500000000000001' // NOPMD
                     )
                 }
-            ).keySet().isEmpty() != true
+            ).keySet().isEmpty() != true,
+            'should have found one user'
         );
     }
 
