@@ -1,6 +1,6 @@
 
 /**
- * trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
+ * @description trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
  */
 public with sharing class EmailMessageTriggerHandler {
     
@@ -32,14 +32,20 @@ public with sharing class EmailMessageTriggerHandler {
         Map<Id, Set<String>> result = new Map<Id, Set<String>>();
         for (EmailMessage emailMsg : messages) {
             System.debug(emailMsg);
-            if (emailMsg.ParentId == null) continue;
+            if (emailMsg.ParentId == null) {
+                continue;
+            }
             // this was not succeeding consistently during unit testing:
             // if (emailMsg.ParentId.getSObjectType() != Schema.Case.SObjectType) System.assert(false);
-            if (!String.valueOf(emailMsg.ParentId).startsWith('500')) continue;
+            if (!String.valueOf(emailMsg.ParentId).startsWith('500')) {
+                continue;
+            }
             Set<String> emailsFound = splitEmailList(emailMsg.ToAddress);
             emailsFound.addAll(splitEmailList(emailMsg.CcAddress));
             emailsFound.addAll(splitEmailList(emailMsg.BccAddress));
-            if (emailsFound.isEmpty()) continue;
+            if (emailsFound.isEmpty()) {
+                continue;
+            }
             if(!result.containsKey(emailMsg.ParentId)){
                 result.put(emailMsg.ParentId, new Set<String>());
             }
@@ -56,7 +62,9 @@ public with sharing class EmailMessageTriggerHandler {
         Map<Id, Set<String>> mapCaseIdWithAddresses = getEmailsByParentId(newEmailMessageList);
         System.debug('mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
         Set<String> foundEmailAddresses = new Set<String>();
-        for (Set<String> s : mapCaseIdWithAddresses.values()) foundEmailAddresses.addAll(s);
+        for (Set<String> s : mapCaseIdWithAddresses.values()) {
+            foundEmailAddresses.addAll(s);
+        }
         System.debug('foundEmailAddresses: ' + foundEmailAddresses);
         
         Map<Id, String> userIdToEmail = new Map<Id, String>();
@@ -68,6 +76,7 @@ public with sharing class EmailMessageTriggerHandler {
             AND Email IN :foundEmailAddresses 
             AND Profile.UserLicense.Name = 'Salesforce' 
             LIMIT 10000
+            WITH SECURITY_ENFORCED
         ]){
             String email = u.Email.toLowerCase().trim();
             emailToUserId.put(email, u.Id);
@@ -75,16 +84,20 @@ public with sharing class EmailMessageTriggerHandler {
         }
         System.debug('emailToUserId: ' + emailToUserId);
 		
-        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1];
+        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1 WITH SECURITY_ENFORCED];
         
         // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
-        if (caseTeamRoleList.isEmpty()) caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1];
+        if (caseTeamRoleList.isEmpty()) {
+            caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1 WITH SECURITY_ENFORCED];
+        }
 
         // if no roles defined in org, exit early
-        if (caseTeamRoleList.isEmpty()) return;
+        if (caseTeamRoleList.isEmpty()) {
+            return;
+        }
 		
         // remove addresses already on case teams
-        for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
+        for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet() WITH SECURITY_ENFORCED]) {
 			String email = ctm.Member.Email;
             // weirdly, this is sometimes null when multiple emails are sent in a single transaction
             if(String.isBlank(email)) {
