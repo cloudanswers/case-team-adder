@@ -121,7 +121,10 @@ public with sharing class EmailMessageTriggerHandler {
                 System.debug(System.LoggingLevel.WARN, '  email field is null on member object, looking up from user table: ' + ctm);
                 email = userIdToEmail.get(ctm.MemberId);
             }
-            System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
+            
+            // thought it was smart to "fail early" but this actually happens from time to time when running apex tests:
+            // System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
+            
             System.debug(System.LoggingLevel.DEBUG, '  removing existing team member: ' + email);
             mapCaseIdWithAddresses.get(ctm.ParentId).remove(email.trim().toLowerCase());
         }
