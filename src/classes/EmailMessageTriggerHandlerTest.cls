@@ -1,12 +1,13 @@
 @isTest
 public class EmailMessageTriggerHandlerTest {
-
+    
     @IsTest
     static void testEmailSplitter () {
         System.assertEquals(
             // try semicolon with spaces and without
 	        EmailMessageTriggerHandler.splitEmailList('test1@example.com;test2@example.com ; test3@example.com'),
-            new Set<String>{'test1@example.com', 'test2@example.com', 'test3@example.com'}
+            new Set<String>{'test1@example.com', 'test2@example.com', 'test3@example.com'},
+            'parse did not get desired emails'
         );
     }
     
@@ -18,7 +19,11 @@ public class EmailMessageTriggerHandlerTest {
         mail.setCcAddresses(new List<String>{UserInfo.getUserEmail()});
 		mail.setSubject('Test Subject');
         mail.setPlainTextBody('Test Body');
-        Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+        try {
+            Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+        } catch (Exception e) {
+            System.assert(false, 'exception thrown: ' + e);
+        }
     }
     
     @IsTest
@@ -33,7 +38,8 @@ public class EmailMessageTriggerHandlerTest {
                         HtmlBody = 'Test email body'
                     )
                 }
-            ).keySet().isEmpty()
+            ).keySet().isEmpty(),
+            'should not have found any emails'
         );
         
         System.assert(
@@ -45,10 +51,11 @@ public class EmailMessageTriggerHandlerTest {
                         CcAddress = 'test@example.com ; ' + UserInfo.getUserEmail(),
                         Subject = 'Test Subject',
                         HtmlBody = 'Test email body',
-                        ParentId = '500000000000001'
+                        ParentId = '500000000000001' // NOPMD
                     )
                 }
-            ).keySet().isEmpty() != true
+            ).keySet().isEmpty() != true,
+            'should have found one user'
         );
     }
 
@@ -99,7 +106,7 @@ public class EmailMessageTriggerHandlerTest {
         Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
         
         // and it should be the same number of members
-        System.assertEquals(caseTeamCount + 1, [select Id from CaseTeamMember where MemberId = :UserInfo.getUserId() and ParentId = :testCase.Id].size());
+        System.assertEquals(caseTeamCount + 1, [select Id from CaseTeamMember where MemberId = :UserInfo.getUserId() and ParentId = :testCase.Id].size(), 'member not added to case');
 
     }
 	

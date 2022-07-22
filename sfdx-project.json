@@ -1,0 +1,12 @@
+{
+  "packageDirectories": [
+    {
+      "path": "src",
+      "default": true
+    }
+  ],
+  "name": "cloudanswers case team adder",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "55.0"
+}

@@ -1,15 +1,22 @@
-
 /**
- * trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
+ * @description trigger handler for EmailMessage to automatically associate case team members when the cc'd field has a user's email
  */
 public with sharing class EmailMessageTriggerHandler {
     
+    // FIXME move to setting
     private static final String ROLE_NAME = 'Collaborator';
-	
+    static List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME WITH SECURITY_ENFORCED LIMIT 1];
+    static {
+        // fail over to first team role if we couldn't find our desired one
+        if (caseTeamRoleList.isEmpty()) {
+            caseTeamRoleList = [SELECT Id FROM CaseTeamRole WITH SECURITY_ENFORCED LIMIT 1];
+        }
+    }
+
     @TestVisible
     /**
      * @description splitEmailList description
-     * @param  s s description
+     * @param  s list of emails from the email message, separated by semicolon
      * @return   return description
      */
     private static Set<String> splitEmailList (String s) {
@@ -31,15 +38,21 @@ public with sharing class EmailMessageTriggerHandler {
     private static Map<Id, Set<String>> getEmailsByParentId (List<EmailMessage> messages) {
         Map<Id, Set<String>> result = new Map<Id, Set<String>>();
         for (EmailMessage emailMsg : messages) {
-            System.debug(emailMsg);
-            if (emailMsg.ParentId == null) continue;
+            System.debug(System.LoggingLevel.DEBUG, emailMsg);
+            if (emailMsg.ParentId == null) {
+                continue;
+            }
             // this was not succeeding consistently during unit testing:
             // if (emailMsg.ParentId.getSObjectType() != Schema.Case.SObjectType) System.assert(false);
-            if (!String.valueOf(emailMsg.ParentId).startsWith('500')) continue;
+            if (!String.valueOf(emailMsg.ParentId).startsWith('500')) {
+                continue;
+            }
             Set<String> emailsFound = splitEmailList(emailMsg.ToAddress);
             emailsFound.addAll(splitEmailList(emailMsg.CcAddress));
             emailsFound.addAll(splitEmailList(emailMsg.BccAddress));
-            if (emailsFound.isEmpty()) continue;
+            if (emailsFound.isEmpty()) {
+                continue;
+            }
             if(!result.containsKey(emailMsg.ParentId)){
                 result.put(emailMsg.ParentId, new Set<String>());
             }
@@ -49,70 +62,92 @@ public with sharing class EmailMessageTriggerHandler {
     }
     
     /**
+     * @description trigger-safe version of main logic which is wrapped in a try/catch so you will never block DML
+     * @param newEmailMessageList list of EmailMessage records from the EmailMessage trigger
+    */
+    public static void createCaseTeamMemberSafe(List<EmailMessage> newEmailMessageList){
+        try {
+            createCaseTeamMember(newEmailMessageList);
+        } catch (Exception e) {
+            System.debug(LoggingLevel.ERROR, e);
+        }
+    }
+
+    /**
      * @description entrypoint for the triggerhandler
-     * @param  newEmailMessageList list of EmailMessage records from the EmailMessage trigger
+     * @param newEmailMessageList list of EmailMessage records from the EmailMessage trigger
      */
     public static void createCaseTeamMember(List<EmailMessage> newEmailMessageList){
+
+        if (caseTeamRoleList.isEmpty()) {
+            System.debug(System.LoggingLevel.WARN, 'no case team roles configured in this org');
+            return;
+        }
+
         Map<Id, Set<String>> mapCaseIdWithAddresses = getEmailsByParentId(newEmailMessageList);
-        System.debug('mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
+        System.debug(System.LoggingLevel.DEBUG, 'mapCaseIdWithAddresses: ' + mapCaseIdWithAddresses);
         Set<String> foundEmailAddresses = new Set<String>();
-        for (Set<String> s : mapCaseIdWithAddresses.values()) foundEmailAddresses.addAll(s);
-        System.debug('foundEmailAddresses: ' + foundEmailAddresses);
+        for (Set<String> s : mapCaseIdWithAddresses.values()) {
+            foundEmailAddresses.addAll(s);
+        }
+        System.debug(System.LoggingLevel.DEBUG, 'foundEmailAddresses: ' + foundEmailAddresses);
         
         Map<Id, String> userIdToEmail = new Map<Id, String>();
         Map<String, Id> emailToUserId = new Map<String, Id>();
+        
+        // FIXME this will be a disaster in large orgs
         for(User u : [
             SELECT Id, Email
             FROM User 
             WHERE IsActive = true 
             AND Email IN :foundEmailAddresses 
             AND Profile.UserLicense.Name = 'Salesforce' 
-            LIMIT 10000
+            WITH SECURITY_ENFORCED
+            ORDER BY LastModifiedDate desc
+            LIMIT 1000
         ]){
             String email = u.Email.toLowerCase().trim();
             emailToUserId.put(email, u.Id);
             userIdToEmail.put(u.Id, email);
         }
-        System.debug('emailToUserId: ' + emailToUserId);
-		
-        List<CaseTeamRole> caseTeamRoleList = [SELECT Id FROM CaseTeamRole WHERE Name = :ROLE_NAME LIMIT 1];
-        
-        // FIXME fail over to first team role if we couldn't find our normal one, smells weird, but ok for now
-        if (caseTeamRoleList.isEmpty()) caseTeamRoleList = [SELECT Id FROM CaseTeamRole LIMIT 1];
-
-        // if no roles defined in org, exit early
-        if (caseTeamRoleList.isEmpty()) return;
+        System.debug(System.LoggingLevel.DEBUG, 'emailToUserId: ' + emailToUserId);
 		
         // remove addresses already on case teams
         for (CaseTeamMember ctm : [select ParentId, MemberId, Member.Email from CaseTeamMember where ParentId in :mapCaseIdWithAddresses.keySet()]) {
-			String email = ctm.Member.Email;
             // weirdly, this is sometimes null when multiple emails are sent in a single transaction
+            // maybe a platform bug?
+            String email = ctm.Member.Email;
             if(String.isBlank(email)) {
+                System.debug(System.LoggingLevel.WARN, '  email field is null on member object, looking up from user table: ' + ctm);
                 email = userIdToEmail.get(ctm.MemberId);
             }
             System.assert(String.isNotBlank(email), 'email was blank, this should never happen: ' + ctm);
-            System.debug('  removing existing team member: ' + email);
+            System.debug(System.LoggingLevel.DEBUG, '  removing existing team member: ' + email);
             mapCaseIdWithAddresses.get(ctm.ParentId).remove(email.trim().toLowerCase());
         }
         
         List<CaseTeamMember> toInsert = new List<CaseTeamMember>();
         for(Id caseId : mapCaseIdWithAddresses.keySet()){
             Set<String> emails = mapCaseIdWithAddresses.get(caseId);
+            
             // remove non-user emails
             emails.retainAll(emailToUserId.keySet());
             
             for(String email : emails){
-                Id userId = emailToUserId.get(email);
-                
                 toInsert.add(
                     new CaseTeamMember(
                         ParentId = caseId,
-                        MemberId= emailToUserId.get(email.toLowerCase()),
+                        MemberId = emailToUserId.get(email.toLowerCase()),
                         TeamRoleId = caseTeamRoleList[0].id
                     )
                 );
             }
         }
-        insert toInsert;
+        if (!Schema.sObjectType.CaseTeamMember.isCreateable()) {
+            System.debug(System.LoggingLevel.ERROR, 'CaseTeamMember not creatable');
+        } else {
+            // insert without allOrNone so we don't block email insertion on error
+            Database.insert(toInsert, false);
+        }
     }
 }
