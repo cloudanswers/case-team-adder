@@ -1,3 +1,7 @@
 trigger EmailMessageTrigger on EmailMessage (after insert) {
-    EmailMessageTriggerHandler.createCaseTeamMember(Trigger.new);
+    try {
+        EmailMessageTriggerHandler.createCaseTeamMember(Trigger.new);
+    } catch (Exception e) {
+        System.debug(e);
+    }
 }
