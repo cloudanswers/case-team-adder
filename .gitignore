@@ -3,3 +3,6 @@ salesforce_ant_*.zip*
 .env
 pmd-bin-*
 docs/
+.sfdx/
+.sf/
+.vscode/
