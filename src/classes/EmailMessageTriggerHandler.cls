@@ -62,6 +62,17 @@ public with sharing class EmailMessageTriggerHandler {
     }
     
     /**
+     * @description trigger-safe version of main logic which is wrapped in a try/catch so you will never block DML
+     */
+    public static void createCaseTeamMemberSafe(List<EmailMessage> newEmailMessageList){
+        try {
+            createCaseTeamMember(newEmailMessageList);
+        } catch (Exception e) {
+            System.debug(LoggingLevel.ERROR, e);
+        }
+    }
+    
+    /**
      * @description entrypoint for the triggerhandler
      * @param  newEmailMessageList list of EmailMessage records from the EmailMessage trigger
      */
