@@ -81,10 +81,10 @@ public class EmailMessageTriggerHandlerTest {
         
         System.assertEquals(1, [select Id from EmailMessage where ParentId = :testCase.Id].size(), 'email was not logged');
         
-        // no new case team members should be added
-        System.assertEquals(caseTeamCount, [select Id from CaseTeamMember where ParentId = :testCase.Id].size(), 'case count should not have changed');
+        // only running user should be added (eg. the from address)
+        System.assertEquals(caseTeamCount + 1, [select Id from CaseTeamMember where ParentId = :testCase.Id].size(), 'case count should not have changed');
         
-        // when i am cc'd on a case, i should be added to case team
+        // when i am cc'd on a case, it should not fail and have same number of team members
         mail = new Messaging.SingleEmailMessage();
         mail.setWhatId(testCase.Id);
         mail.setToAddresses(new List<String>{'test@example.com'});
