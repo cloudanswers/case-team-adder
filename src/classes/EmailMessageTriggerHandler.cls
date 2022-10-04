@@ -50,6 +50,7 @@ public with sharing class EmailMessageTriggerHandler {
             Set<String> emailsFound = splitEmailList(emailMsg.ToAddress);
             emailsFound.addAll(splitEmailList(emailMsg.CcAddress));
             emailsFound.addAll(splitEmailList(emailMsg.BccAddress));
+            emailsFound.addAll(splitEmailList(emailMsg.FromAddress));
             if (emailsFound.isEmpty()) {
                 continue;
             }
