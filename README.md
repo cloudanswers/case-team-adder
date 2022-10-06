@@ -2,6 +2,8 @@
 
 automatically add case team members to cases if they are cc'd on emails
 
+appexchange listing: https://appexchange.salesforce.com/appxListingDetail?listingId=a0N4V00000HZbcAUAT
+
 ## documentation
 
     npx docsify-cli init docs
